@@ -5,16 +5,12 @@
 ## Table of Contents
 
 - [Description](#description)
-- [Screenshots](#screenshots)
 - [Built With](#built-with)
 - [Getting Started](#getting-started)
   - [Prerequisites](#prerequisites)
   - [Installation](#installation)
 - [Usage](#usage)
 - [License](#license)
-- [Acknowledgements](#acknowledgements)
-- [Contacts](#contacts)
-
 ## Description
 
 Use this to download all historical spot price candlestick data from the following crypto exchanges:
