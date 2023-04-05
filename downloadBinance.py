@@ -22,14 +22,12 @@ def get_usdt_btc_trading_pairs():
 
     # Make the API request
     response = requests.get(endpoint)
-    # print(response)
 
     # Parse the response JSON and extract the trading pairs
     pairs = [f"{pair['symbol']}" for pair in response.json()["symbols"] if pair["quoteAsset"] == "USDT"]
     pairs += [f"{pair['symbol']}" for pair in response.json()["symbols"] if pair["quoteAsset"] == "BUSD"]
     pairs += [f"{pair['symbol']}" for pair in response.json()["symbols"] if pair["quoteAsset"] == "ETH"]
     pairs += [f"{pair['symbol']}" for pair in response.json()["symbols"] if pair["quoteAsset"] == "BTC"]
-    print(pairs)
     # Return the list of trading pairs
     return pairs
 
@@ -46,7 +44,7 @@ def download_candlestick_data(ticker, timeframe):
     # Set the parameters for the candlestick data URL
     biz = "spot"
     interval = timeframe
-    today = date.today() - timedelta(days=1)
+    today = date.today() - timedelta(days=2)
     year_month = today.strftime("%Y-%m")
 
     # Create a subfolder inside the save directory for the current ticker and timeframe
