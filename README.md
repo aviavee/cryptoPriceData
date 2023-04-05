@@ -16,7 +16,9 @@
 Use this to download all historical spot price candlestick data from the following crypto exchanges:
 - Gate.io
 - Binance
-- ... more to come maybe, if I find the need for more data.
+- ... more to come maybe, if I find the need for more data
+
+a freqtrader import of these files will also come..
 
 ## Built With
 
