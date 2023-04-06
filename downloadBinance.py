@@ -7,7 +7,7 @@ from concurrent.futures import ThreadPoolExecutor
 base_url = "https://data.binance.vision"
 
 # Define the directory to save the downloaded files
-save_dir = "/home/erlend/projects/priceData/data/binance"
+save_dir = "user_data/priceData/data/binance"
 
 # Define the number of threads to use for downloading files
 num_threads = 10

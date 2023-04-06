@@ -22,7 +22,7 @@ def get_usdt_btc_trading_pairs():
 base_url = "https://download.gatedata.org"
 
 # Define the directory to save the downloaded files
-save_dir = "/home/erlend/projects/priceData/data/gateio"
+save_dir = "user_data/priceData/data/gateio"
 
 # Define the number of threads to use for downloading files
 num_threads = 5
