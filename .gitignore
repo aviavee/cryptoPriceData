@@ -5,3 +5,5 @@ lib/
 share/
 pyvenv.cfg
 lib64
+downloadBinanceV2.py
+importBinance.py
