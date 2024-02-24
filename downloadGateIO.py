@@ -22,7 +22,8 @@ def get_usdt_btc_trading_pairs():
 base_url = "https://download.gatedata.org"
 
 # Define the directory to save the downloaded files
-save_dir = "user_data/priceData/data/gateio"
+# save_dir = "user_data/priceData/data/gateio"
+save_dir = "data/gateio"
 
 # Define the number of threads to use for downloading files
 num_threads = 5
@@ -55,7 +56,8 @@ def download_candlestick_data(ticker, timeframe):
         url = f"{base_url}/{biz}/candlesticks_{timeframe}/{year_month}/{ticker}-{year_month}.csv.gz"
         save_path = os.path.join(ticker_dir, f"{ticker}-{year_month}.csv.gz")
         if os.path.exists(save_path):
-            print(f"File {save_path} already exists, skipping download")
+            # print(f"File {save_path} already exists, skipping download")
+            pass
         else:
             try:
                 download_file(url, save_path)
