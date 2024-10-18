@@ -14,22 +14,25 @@ import json
 import pandas as pd
 import re
 import subprocess
+import pyarrow.feather as feather
 # import threading
 import concurrent.futures
 
-logfile = "logBinanceTEST.txt"
+logfile = "logBinance.txt"
 # Set the path to the root directory you want to loop through
 path = '/home/erlend/projects/priceData/data/binance/monthly'
 # path = '/home/erlend/projects/freqtrade/user_data/data/binance/price_history/price_history'
 exportPath = '/home/erlend/projects/freqtrade/user_data/data/binance'
 baseAssets = ['USDT']
-baseAssets = ['BTC', 'ETH', 'BUSD' ,'USDT']
+# baseAssets = ['BTC', 'ETH', 'USDT']
 # timeFrames = ['1w','1d', '4h', '1h', '30m', '15m', '5m', '1m', '12h', '1mo', '2h', '3d', '3m', '6h', '8h']
-timeFrames = ['1m']
+timeFrames = ['4h']
 ActualTimeFrames = list()
 # symbol = []
 
 max_threads = 1  # Maximum number of threads to run concurrently
+# Save the original working directory
+original_dir = os.getcwd()
 
 def deleteJsonPriceFiles():
     cmd = "/usr/bin/rm /home/erlend/projects/freqtrade/user_data/data/binance/*.json"
@@ -62,6 +65,7 @@ def prepareFilename(filename):
 
 def processDirectory(ticker):
         # Check if the current directory is a directory (not a file)
+    # print(ticker)
     if os.path.isdir(ticker):
         # Create a variable for the first subdirectory
         timeframes = os.listdir(ticker)
@@ -115,23 +119,37 @@ def processDirectory(ticker):
             if not H5data:
                 continue
 
-            df = pd.concat(li,ignore_index=True)
-            print(df)
+            # Assuming 'li' is already defined and populated with DataFrames
+            df = pd.concat(li, ignore_index=True)
+
+            # Convert the first column (epoch time in milliseconds) to datetime format
+            df.iloc[:, 0] = pd.to_datetime(df.iloc[:, 0], unit='ms', errors='coerce')
+
+            # Localize the datetime to UTC (optional, depending on your requirement)
+            df.iloc[:, 0] = df.iloc[:, 0].dt.tz_localize('UTC')
+
+            # Format the datetime to the desired output
+            df.iloc[:, 0] = df.iloc[:, 0].dt.strftime('%Y-%m-%d %H:%M:%S%z')
+
+            # Select the relevant columns (including the converted first column)
             outData = df.iloc[:, :6]
-            print(outData)
-            quit()
-            # output data to HDF5 file
-            output_path = os.path.join(exportPath, H5data[0] + ".json")
-            outData.to_json(output_path, orient='values')
-            # print(H5data[1])
+
+            # Specify the output path for the Feather file
+            output_path = os.path.join(exportPath, H5data[0] + ".feather")
+
+            # Save the DataFrame to a Feather file
+            feather.write_feather(outData, output_path)
+
             print("Exported " + H5data[0])
             symbol = H5data[2]
-            # print(symbol)
         
         # if symbol:
-        tf = " ".join(ActualTimeFrames)
-        cmd = '/home/erlend/projects/freqtrade/.env/bin/freqtrade convert-data --candle-types spot --tradingmode spot --format-from json --format-to feather -c /home/erlend/projects/freqtrade/user_data/configBackup.json -d /home/erlend/projects/freqtrade/user_data/data/binance -p ' + symbol + ' --timeframes ' + tf
-        subprocess.run(cmd, shell=True)
+        # tf = " ".join(ActualTimeFrames)
+        # freqtrade_home = '/home/erlend/projects/freqtrade'
+        # os.chdir(freqtrade_home)
+        # cmd = f'./.env/bin/freqtrade convert-data --candle-types spot --tradingmode spot --format-from json --format-to feather -c /home/erlend/projects/freqtrade/user_data/configBackup.json -d /home/erlend/projects/freqtrade/user_data/data/binance -p ' + symbol + ' --timeframes ' + tf
+        # subprocess.run(cmd, shell=True)
+        # os.chdir(original_dir)
         deleteJsonPriceFiles()
         print("Converted " + symbol + " timeframes " + tf)
         name = str()
@@ -141,9 +159,9 @@ def processDirectory(ticker):
 
 def main():
     downloaded_tickers = []
-    if os.path.exists(os.path.join(exportPath, logfile)):
-        with open(os.path.join(exportPath, logfile), "r") as f:
-            downloaded_tickers = f.read().splitlines()
+    # if os.path.exists(os.path.join(exportPath, logfile)):
+    #     with open(os.path.join(exportPath, logfile), "r") as f:
+    #         downloaded_tickers = f.read().splitlines()
 
     # Loop through all TICKER folders.
     for dir_name in os.listdir(path):
@@ -151,8 +169,8 @@ def main():
         ticker = os.path.join(path, dir_name)
         # print(ticker)
 
-        # if dir_name not in 'ACAUSDT':
-        #     continue
+        if dir_name not in 'BTCUSDT':
+            continue
 
         # if not any(timeFrame in sub_dir for timeFrame in timeFrames):
         if not any(baseAsset in dir_name for baseAsset in baseAssets):

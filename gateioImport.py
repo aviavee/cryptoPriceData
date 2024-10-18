@@ -19,13 +19,14 @@ import concurrent.futures
 
 logfile = "logGateIO.txt"
 # Set the path to the root directory you want to loop through
-path = '/home/erlend/projects/priceData/data/gateio'
+# path = '/home/erlend/projects/priceData/data/gateio'
+path = '/mnt/e/projects/priceData/data/gateio'
 # path = '/home/erlend/projects/freqtrade/user_data/data/binance/price_history/price_history'
 exportPath = '/home/erlend/projects/freqtrade/user_data/data/gateio'
-baseAssets = ['BTC', 'ETH', 'BUSD' ,'USDT']
-# baseAssets = ('BTC', 'ETH', 'BUSD', 'USDT')
+# baseAssets = ['BTC', 'ETH' ,'USDT']
+baseAssets = ['USDT']
 timeFrames = ["1m", "5m", "1h", "4h", "1d"]
-# timeFrames = ['1m']
+
 ActualTimeFrames = list()
 
 max_threads = 1  # Maximum number of threads to run concurrently
@@ -42,12 +43,11 @@ def prepareFilename(filename):
     data = []
     # regex pattern to extract CVC, ETH, and duration from filename
     match = re.match(pattern, filename)
-
+    # print(filename)
     if not match:
         return False
 
     for word in filename.split("-"):
-        # print(word)
         for baseAsset in baseAssets:
             if word.endswith(baseAsset):
                 data.insert(0, str(match.group(1)) + "-" + str(match.group(2)))
@@ -79,7 +79,7 @@ def processDirectory(ticker):
                 file_list = []
                 for file in files:
                     # check for zip files and files with correct timeframe as listed in timeframes tuple
-                    if file.endswith('.gzip'):
+                    if file.endswith('.gz'):
                         file_list.append(file)
                 # sort filenames by name
                 file_list.sort()
@@ -110,29 +110,41 @@ def processDirectory(ticker):
             H5data = prepareFilename(file_list[0])
             if not H5data:
                 continue
-
+            """ 
+            File format.
+            timestamp, volumn, close, high, low, open
+            Examples:
+            1626224400,39.927263186699996,32372.13,32490.9,32265.76,32425.09
+            """
             df = pd.concat(li,ignore_index=True)
-            outData = df.iloc[:, :6]
-            col1 = outData.pop(1)
-            outData.insert(len(outData.columns), col1.name, col1)
-            outData.columns = range(6)
-            # print(outData)
+            outData = df.iloc[:, [0, 5, 3, 4, 2, 1]]
+            outData[0] *= 1000
+            # outData.iloc[:, -1] = outData.iloc[:, -1].astype(int)
+            # print(outData.dtypes)
             # quit()
+            
             # output data to HDF5 file
-            output_path = os.path.join(exportPath, H5data[0] + "-" + sub_dir +".json")
+            # FILENAME HBAR_USDT-5m.json
+            
+            output_path = os.path.join(exportPath, H5data[2] + "-" + sub_dir +".json")
             outData.to_json(output_path, orient='values')
-            # print(H5data[1])
-            print("Exported " + H5data[0] + " to " + output_path)
-            symbol = H5data[2]
+            # print(H5data[2].replace('_', '/'))
+            # quit()
+
+            print("Exported " + H5data[2] + "-" + sub_dir +".json to " + output_path)
+            symbol = H5data[2].replace('_', '/')
             # print(symbol)
+            # quit()
                 
         if symbol and ActualTimeFrames:
             tf = " ".join(ActualTimeFrames)
+            # cmd = 'freqtrade convert-data --candle-types spot --tradingmode spot --format-from json --format-to feather -c /home/erlend/projects/freqtrade/user_data/GateIO.json -d /home/erlend/projects/freqtrade/user_data/data/gateio -p ' + symbol + ' --timeframes ' + tf
             cmd = '/home/erlend/projects/freqtrade/.env/bin/freqtrade convert-data --candle-types spot --tradingmode spot --format-from json --format-to feather -c /home/erlend/projects/freqtrade/user_data/GateIO.json -d /home/erlend/projects/freqtrade/user_data/data/gateio -p ' + symbol + ' --timeframes ' + tf
+            # print(cmd)
             subprocess.run(cmd, shell=True)
             deleteJsonPriceFiles()
-            print("Converted " + symbol + " timeframes " + tf)
-            name = str()
+            # print("Converted " + symbol + " timeframes " + tf)
+            # name = str()
             # quit()
 
 def main():
@@ -160,7 +172,7 @@ def main():
                 processDirectory(ticker)
                 with open(os.path.join(exportPath, logfile), "a") as f:
                     f.write(f"{dir_name}\n")
-                    quit()
+                    # quit()
             except Exception as e:
                 print(e)
 

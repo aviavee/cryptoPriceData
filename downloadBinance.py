@@ -1,3 +1,29 @@
+"""
+This Python script is designed to download candlestick data for various trading pairs from the 
+Binance cryptocurrency exchange. It uses the Binance public API to fetch the list of trading pairs 
+and then downloads monthly candlestick data in a compressed format for each available trading pair. 
+The script supports multiple timeframes and employs multithreading to enhance the efficiency of data 
+downloads.
+
+Key features include:
+- Fetching active trading pairs that involve USDT, ETH, and BTC as quote assets from the Binance 
+  exchange.
+- Downloading candlestick data for a range of specified timeframes, including 1 minute, 3 minutes, 
+  up to 1 month.
+- Utilizing a ThreadPoolExecutor to download data for different trading pairs and timeframes 
+  concurrently, significantly improving the speed of data acquisition.
+- Handling HTTP errors gracefully and skipping downloads for unavailable data.
+- Organizing downloaded files into directories based on the trading pair and timeframe for easy 
+  access and management.
+- Keeping a log of downloaded tickers to avoid re-downloading data.
+
+The script requires external libraries including requests for HTTP requests, datetime and dateutil 
+for date manipulation, os for filesystem operations, and concurrent.futures for multithreading.
+
+Note: This script is intended for educational and research purposes, and its use should comply with 
+Binance's API terms of service.
+"""
+
 import os
 import requests
 from datetime import date, timedelta
@@ -28,7 +54,7 @@ def get_usdt_btc_trading_pairs():
 
     # Parse the response JSON and extract the trading pairs
     pairs = [f"{pair['symbol']}" for pair in response.json()["symbols"] if pair["quoteAsset"] == "USDT"]
-    pairs += [f"{pair['symbol']}" for pair in response.json()["symbols"] if pair["quoteAsset"] == "BUSD"]
+    # pairs += [f"{pair['symbol']}" for pair in response.json()["symbols"] if pair["quoteAsset"] == "BUSD"]
     pairs += [f"{pair['symbol']}" for pair in response.json()["symbols"] if pair["quoteAsset"] == "ETH"]
     pairs += [f"{pair['symbol']}" for pair in response.json()["symbols"] if pair["quoteAsset"] == "BTC"]
     # Return the list of trading pairs
@@ -104,6 +130,7 @@ def main():
         with open(os.path.join(save_dir, "logBinance.txt"), "r") as f:
             downloaded_tickers = f.read().splitlines()
 
+    # print(downloaded_tickers)
     # Download candlestick data for each ticker and timeframe using multithreading
     with ThreadPoolExecutor(max_workers=num_threads) as executor:
         for ticker in tickers:
