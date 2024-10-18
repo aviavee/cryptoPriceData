@@ -37,12 +37,13 @@ base_url = "https://data.binance.vision"
 save_dir = "data/binance/monthly"
 
 # Define the number of threads to use for downloading files
-num_threads = 15
+num_threads = 5
 num_errors = []
 max_errors = 2
 
 # Define the available timeframes
-timeframes = ["1m", "3m", "5m", "15m", "30m", "1h", "2h", "4h", "6h", "8h", "12h", "1d", '3d', '1mo']
+# timeframes = ["1m", "3m", "5m", "15m", "30m", "1h", "2h", "4h", "6h", "8h", "12h", "1d", '3d', '1mo']
+timeframes = ["1h", "2h", "4h", "6h", "8h", "12h", "1d", '3d', '1mo', '1w']
 
 # Download active trading pairs from Binance
 def get_usdt_btc_trading_pairs():
@@ -129,7 +130,7 @@ def main():
     if os.path.exists(os.path.join(save_dir, "logBinance.txt")):
         with open(os.path.join(save_dir, "logBinance.txt"), "r") as f:
             downloaded_tickers = f.read().splitlines()
-
+    downloaded_tickers = []
     # print(downloaded_tickers)
     # Download candlestick data for each ticker and timeframe using multithreading
     with ThreadPoolExecutor(max_workers=num_threads) as executor:

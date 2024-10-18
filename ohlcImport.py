@@ -23,10 +23,10 @@ logfile = "logBinance.txt"
 path = '/home/erlend/projects/priceData/data/binance/monthly'
 # path = '/home/erlend/projects/freqtrade/user_data/data/binance/price_history/price_history'
 exportPath = '/home/erlend/projects/freqtrade/user_data/data/binance'
-baseAssets = ['USDT']
-# baseAssets = ['BTC', 'ETH', 'USDT']
-# timeFrames = ['1w','1d', '4h', '1h', '30m', '15m', '5m', '1m', '12h', '1mo', '2h', '3d', '3m', '6h', '8h']
-timeFrames = ['4h']
+# baseAssets = ['USDT']
+baseAssets = ['BTC', 'ETH', 'USDT']
+timeFrames = ['1m','1w','1d', '4h', '1h', '30m', '15m', '5m', '1m', '12h', '1mo', '2h', '3d', '3m', '6h', '8h']
+# timeFrames = ['1mo','1w']
 ActualTimeFrames = list()
 # symbol = []
 
@@ -106,6 +106,7 @@ def processDirectory(ticker):
                     df1 = pd.read_csv(os.path.join(sub_dir_path, file_name), index_col=None, header=None)
                 except zipfile.BadZipfile:
                     li = []
+                    print(f"Bad ZIP file: " + os.path.join(sub_dir_path, file_name))
                     deleteJsonPriceFiles()
                     break
 
@@ -125,22 +126,38 @@ def processDirectory(ticker):
             # Convert the first column (epoch time in milliseconds) to datetime format
             df.iloc[:, 0] = pd.to_datetime(df.iloc[:, 0], unit='ms', errors='coerce')
 
-            # Localize the datetime to UTC (optional, depending on your requirement)
+            # Localize the datetime to UTC (if required)
             df.iloc[:, 0] = df.iloc[:, 0].dt.tz_localize('UTC')
 
             # Format the datetime to the desired output
             df.iloc[:, 0] = df.iloc[:, 0].dt.strftime('%Y-%m-%d %H:%M:%S%z')
 
-            # Select the relevant columns (including the converted first column)
+            # Create a mapping for renaming columns
+            rename_mapping = {
+                df.columns[0]: 'date',   # Rename the first column to 'date'
+                df.columns[1]: 'open',   # Rename the second column to 'open'
+                df.columns[2]: 'high',   # Rename the third column to 'high'
+                df.columns[3]: 'low',    # Rename the fourth column to 'low'
+                df.columns[4]: 'close',  # Rename the fifth column to 'close'
+                df.columns[5]: 'volume'  # Rename the sixth column to 'volume'
+            }
+
+            # Rename the columns using the mapping
+            df.rename(columns=rename_mapping, inplace=True)
+
+            # Select the relevant columns (which should now include all named columns)
             outData = df.iloc[:, :6]
 
             # Specify the output path for the Feather file
             output_path = os.path.join(exportPath, H5data[0] + ".feather")
 
+            # Use regex to replace '1mo' with '1Mo' in the output path
+            output_path = re.sub(r'1mo', '1Mo', output_path, flags=re.IGNORECASE)
+
             # Save the DataFrame to a Feather file
             feather.write_feather(outData, output_path)
 
-            print("Exported " + H5data[0])
+            print("Exported " + H5data[0] + ".feather")
             symbol = H5data[2]
         
         # if symbol:
@@ -150,12 +167,11 @@ def processDirectory(ticker):
         # cmd = f'./.env/bin/freqtrade convert-data --candle-types spot --tradingmode spot --format-from json --format-to feather -c /home/erlend/projects/freqtrade/user_data/configBackup.json -d /home/erlend/projects/freqtrade/user_data/data/binance -p ' + symbol + ' --timeframes ' + tf
         # subprocess.run(cmd, shell=True)
         # os.chdir(original_dir)
-        deleteJsonPriceFiles()
-        print("Converted " + symbol + " timeframes " + tf)
-        name = str()
+        # deleteJsonPriceFiles()
+        # print("Converted " + symbol + " timeframes " + tf)
+        # name = str()
         # quit()
 
-        # quit()
 
 def main():
     downloaded_tickers = []
@@ -169,7 +185,7 @@ def main():
         ticker = os.path.join(path, dir_name)
         # print(ticker)
 
-        if dir_name not in 'BTCUSDT':
+        if dir_name not in 'ETHUSDT':
             continue
 
         # if not any(timeFrame in sub_dir for timeFrame in timeFrames):
