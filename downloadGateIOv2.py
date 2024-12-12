@@ -29,7 +29,8 @@ def get_usdt_btc_trading_pairs():
 base_url = "https://download.gatedata.org"
 save_dir = "data/gateio"
 baseAssets = ['BTC', 'ETH' ,'USDT']
-num_threads = 1
+num_threads = 64
+biz = "spot"
 timeframes = ["1m", "5m", "1h", "4h", "1d"]
 
 def download_file(url, save_path):
@@ -39,9 +40,8 @@ def download_file(url, save_path):
         for chunk in response.iter_content(chunk_size=8192):
             f.write(chunk)
 
-def download_candlestick_data(ticker, timeframe):
+def download_candlestick_data(ticker, timeframe, biz):
     # Set the parameters for the candlestick data URL
-    biz = "spot"
     today = date.today() - timedelta(days=50)
     # last_month = date.today() - timedelta(days=50)
     year_month = today.strftime("%Y%m")
@@ -104,8 +104,8 @@ def parse_date_from_filename(filename):
     except ValueError:
         return None
 
-def construct_download_url(base_url, ticker, timeframe, year_month):
-    return f"{base_url}/spot/candlesticks_{timeframe}/{year_month}/{ticker}-{year_month}.csv.gz"
+def construct_download_url(base_url, ticker, timeframe, year_month, biz):
+    return f"{base_url}/{biz}/candlesticks_{timeframe}/{year_month}/{ticker}-{year_month}.csv.gz"
 
 def find_missing_dates(start_date, end_date):
     # Generate a list of all expected months between start and end dates
@@ -116,7 +116,7 @@ def find_missing_dates(start_date, end_date):
         missing_months.append(datetime(y, m + 1, 1))
     return missing_months
 
-def check_and_download_missing_files(ticker, timeframe, base_url, save_dir):
+def check_and_download_missing_files(ticker, timeframe, base_url, save_dir, biz):
     ticker_dir = os.path.join(save_dir, ticker, timeframe)
     os.makedirs(ticker_dir, exist_ok=True)
     
@@ -134,7 +134,7 @@ def check_and_download_missing_files(ticker, timeframe, base_url, save_dir):
     for missing_date in missing_dates:
         year_month = missing_date.strftime('%Y%m')
         if missing_date not in dates:
-            url = construct_download_url(base_url, ticker, timeframe, year_month)
+            url = construct_download_url(base_url, ticker, timeframe, year_month, biz)
             save_path = os.path.join(ticker_dir, f"{ticker}-{year_month}.csv.gz")
             if not os.path.exists(save_path):
                 print(f"Missing file detected: {save_path}. Attempting to download...")
@@ -155,19 +155,19 @@ def is_valid_gzip_file(filepath):
         os.remove(filepath)  # Delete the file if it's not a valid gzip
         return False
 
-def download_candlestick_data_all_timeframes(ticker):
+def download_candlestick_data_all_timeframes(ticker, biz):
     with ThreadPoolExecutor(max_workers=num_threads) as executor:
         if args.check_files:
-            executor.map(lambda tf: check_and_download_missing_files(ticker, tf), timeframes)
+            executor.map(lambda tf: check_and_download_missing_files(ticker, tf), timeframes, biz)
         else:
-            executor.map(lambda tf: download_candlestick_data(ticker, tf), timeframes)
+            executor.map(lambda tf: download_candlestick_data(ticker, tf), timeframes, biz)
 
-def main():
+def main(biz):
     os.makedirs(save_dir, exist_ok=True)
     tickers = get_usdt_btc_trading_pairs()
     progress_bar = tqdm(total=len(tickers), desc='Processing Tickers', position=0)
     with ThreadPoolExecutor(max_workers=num_threads) as executor:
-        futures = {executor.submit(download_candlestick_data_all_timeframes, ticker): ticker for ticker in tickers}
+        futures = {executor.submit(download_candlestick_data_all_timeframes, ticker, biz): ticker for ticker in tickers}
         for future in futures:
             ticker = futures[future]
             try:
@@ -180,4 +180,4 @@ def main():
     progress_bar.close()
 
 if __name__ == "__main__":
-    main()
+    main(biz)

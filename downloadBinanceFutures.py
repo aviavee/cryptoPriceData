@@ -1,5 +1,6 @@
 import os
 import requests
+import signal
 from datetime import date, timedelta
 from dateutil.relativedelta import relativedelta
 from concurrent.futures import ThreadPoolExecutor
@@ -17,21 +18,20 @@ num_errors = []
 max_errors = 2
 
 # Define the available timeframes
-timeframes = ["1m", "3m", "5m", "15m", "30m", "1h", "2h", "4h", "6h", "8h", "12h", "1d", '3d', '1mo']
+timeframes = ["1m", "3m", "5m", "15m", "30m", "1h", "2h", "4h", "6h", "8h", "12h", "1d", '3d']
 
 # Download active trading pairs from Binance
 def get_usdt_btc_trading_pairs():
-    # Set up the API endpoint and parameters
-    endpoint = "https://api.binance.com/api/v3/exchangeInfo"
+    # Set up the API endpoint for USD-Margined (UM) Futures
+    endpoint = "https://fapi.binance.com/fapi/v1/exchangeInfo"
 
     # Make the API request
     response = requests.get(endpoint)
 
-    # Parse the response JSON and extract the trading pairs
-    pairs = [f"{pair['symbol']}" for pair in response.json()["symbols"] if pair["quoteAsset"] == "USDT"]
-    # pairs += [f"{pair['symbol']}" for pair in response.json()["symbols"] if pair["quoteAsset"] == "BUSD"]
-    pairs += [f"{pair['symbol']}" for pair in response.json()["symbols"] if pair["quoteAsset"] == "ETH"]
-    pairs += [f"{pair['symbol']}" for pair in response.json()["symbols"] if pair["quoteAsset"] == "BTC"]
+    # Parse the response JSON and extract only USDT pairs for UM futures
+    pairs = [pair['symbol'] for pair in response.json()["symbols"] 
+             if pair["quoteAsset"] == "USDT" and pair["contractType"] == "PERPETUAL"]
+
     # Return the list of trading pairs
     return pairs
 
@@ -96,7 +96,8 @@ def main():
     os.makedirs(save_dir, exist_ok=True)
 
     # Retrieve all trading pairs from the Binance API
-    tickers = get_usdt_btc_trading_pairs()
+    # tickers = get_usdt_btc_trading_pairs()
+    tickers = ['BTCUSDT']
     # print(tickers)
 
     # Check the log file for previously downloaded tickers
@@ -105,13 +106,32 @@ def main():
         with open(os.path.join(save_dir, logFile), "r") as f:
             downloaded_tickers = f.read().splitlines()
 
-    # Download candlestick data for each ticker and timeframe using multithreading
-    with ThreadPoolExecutor(max_workers=num_threads) as executor:
-        for ticker in tickers:
-            if ticker not in downloaded_tickers:
-                download_candlestick_data_all_timeframes(ticker)
-                with open(os.path.join(save_dir, logFile), "a") as f:
-                    f.write(f"{ticker}\n")
+    # Function to handle graceful shutdown on KeyboardInterrupt
+    def handle_keyboard_interrupt(executor):
+        # Shut down the executor and cancel all threads
+        print("\nKeyboardInterrupt received. Shutting down...")
+        executor.shutdown(wait=False)
+        print("Executor shut down. Exiting...")
+
+    # Set up a signal handler for KeyboardInterrupt
+    signal.signal(signal.SIGINT, lambda s, f: handle_keyboard_interrupt(executor=None))
+
+    # Download candlestick data using ThreadPoolExecutor
+    try:
+        with ThreadPoolExecutor(max_workers=num_threads) as executor:
+            futures = []
+            for ticker in tickers:
+                if ticker not in downloaded_tickers:
+                    future = executor.submit(download_candlestick_data_all_timeframes, ticker)
+                    futures.append(future)
+                    # Log the downloaded ticker
+                    with open(os.path.join(save_dir, logFile), "a") as f:
+                        f.write(f"{ticker}\n")
+    except KeyboardInterrupt:
+        print("\nKeyboardInterrupt caught in main program. Cancelling tasks...")
+        # Shutting down the executor immediately
+        executor.shutdown(wait=False)
+        print("Tasks have been cancelled.")
 
 if __name__ == "__main__":
     main()

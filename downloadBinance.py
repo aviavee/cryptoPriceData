@@ -26,6 +26,7 @@ Binance's API terms of service.
 
 import os
 import requests
+import signal
 from datetime import date, timedelta
 from dateutil.relativedelta import relativedelta
 from concurrent.futures import ThreadPoolExecutor
@@ -37,25 +38,28 @@ base_url = "https://data.binance.vision"
 save_dir = "data/binance/monthly"
 
 # Define the number of threads to use for downloading files
-num_threads = 5
+num_threads = 15
 num_errors = []
 max_errors = 2
 
+
+
 # Define the available timeframes
-# timeframes = ["1m", "3m", "5m", "15m", "30m", "1h", "2h", "4h", "6h", "8h", "12h", "1d", '3d', '1mo']
-timeframes = ["1h", "2h", "4h", "6h", "8h", "12h", "1d", '3d', '1mo', '1w']
+# timeframes = ["1m", "3m", "5m", "15m", "30m"]
+# timeframes = ["30m", "1h", "2h", "4h", "6h", "8h", "12h", "1d", '3d', '1mo', '1w']
+timeframes=['1m', '5m', '15m', '30m', '1h', '2h', '4h', '6h', '8h', '12h', '1d', '3d', '1w', '1mo', '3m']
 
 # Download active trading pairs from Binance
 def get_usdt_btc_trading_pairs():
     # Set up the API endpoint and parameters
-    endpoint = "https://api.binance.com/api/v3/exchangeInfo"
+    endpoint = "https://api.binance.com/api/v3/exchangeInfo?symbolStatus=TRADING"
 
     # Make the API request
     response = requests.get(endpoint)
 
     # Parse the response JSON and extract the trading pairs
     pairs = [f"{pair['symbol']}" for pair in response.json()["symbols"] if pair["quoteAsset"] == "USDT"]
-    # pairs += [f"{pair['symbol']}" for pair in response.json()["symbols"] if pair["quoteAsset"] == "BUSD"]
+    pairs += [f"{pair['symbol']}" for pair in response.json()["symbols"] if pair["quoteAsset"] == "USDC"]
     pairs += [f"{pair['symbol']}" for pair in response.json()["symbols"] if pair["quoteAsset"] == "ETH"]
     pairs += [f"{pair['symbol']}" for pair in response.json()["symbols"] if pair["quoteAsset"] == "BTC"]
     # Return the list of trading pairs
@@ -89,7 +93,6 @@ def download_candlestick_data(ticker, timeframe):
         year_month = today.strftime("%Y-%m")
         # url = f"{base_url}/data/{biz}/daily/klines/{ticker}/{interval}/{ticker}-{interval}-{year_month}-{today.day:02d}.zip"
         url = f"{base_url}/data/{biz}/monthly/klines/{ticker}/{interval}/{ticker}-{interval}-{year_month}.zip"
-        # print(url)
         # save_path = os.path.join(ticker_dir, f"{ticker}-{interval}-{year_month}-{today.day:02d}.zip")
         save_path = os.path.join(ticker_dir, f"{ticker}-{interval}-{year_month}.zip")
 
@@ -104,7 +107,7 @@ def download_candlestick_data(ticker, timeframe):
             print(f"Downloaded {url} to {save_path}")
         except requests.exceptions.HTTPError as e:
             if e.response.status_code == 404:
-                print(f"{url} not found. Skipping...")
+                # print(f"{url} not found. Skipping...")
                 break
         # Move to the previous day
         today = today - relativedelta(months=+1)
@@ -132,13 +135,33 @@ def main():
             downloaded_tickers = f.read().splitlines()
     downloaded_tickers = []
     # print(downloaded_tickers)
-    # Download candlestick data for each ticker and timeframe using multithreading
-    with ThreadPoolExecutor(max_workers=num_threads) as executor:
-        for ticker in tickers:
-            if ticker not in downloaded_tickers:
-                download_candlestick_data_all_timeframes(ticker)
-                with open(os.path.join(save_dir, "logBinance.txt"), "a") as f:
-                    f.write(f"{ticker}\n")
+    
+    # Function to handle graceful shutdown on KeyboardInterrupt
+    def handle_keyboard_interrupt(executor):
+        # Shut down the executor and cancel all threads
+        print("\nKeyboardInterrupt received. Shutting down...")
+        executor.shutdown(wait=False)
+        print("Executor shut down. Exiting...")
+
+    # Set up a signal handler for KeyboardInterrupt
+    signal.signal(signal.SIGINT, lambda s, f: handle_keyboard_interrupt(executor=None))
+
+    # Download candlestick data using ThreadPoolExecutor
+    try:
+        with ThreadPoolExecutor(max_workers=num_threads) as executor:
+            futures = []
+            for ticker in tickers:
+                if ticker not in downloaded_tickers:
+                    future = executor.submit(download_candlestick_data_all_timeframes, ticker)
+                    futures.append(future)
+                    # Log the downloaded ticker
+                    with open(os.path.join(save_dir, "logBinance.txt"), "a") as f:
+                        f.write(f"{ticker}\n")
+    except KeyboardInterrupt:
+        print("\nKeyboardInterrupt caught in main program. Cancelling tasks...")
+        # Shutting down the executor immediately
+        executor.shutdown(wait=False)
+        print("Tasks have been cancelled.")
 
 if __name__ == "__main__":
     main()
